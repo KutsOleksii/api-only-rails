@@ -1,15 +1,29 @@
+
+require 'net/http'
+
 module Api
   module V1
     class BooksController < ApplicationController
+      MAX_PAGINATION_LIMIT = 100
+
       def index
-        books = Book.all
+        books = Book.limit(limit).offset(params[:offset])
 
         render json: BooksRepresenter.new(books).as_json
       end
 
       def create
-        author = Author.create!(author_params)
-        book = Book.new(book_params.merge(author_id: author.id))
+        # author = Author.create!(author_params)
+        # book = Book.new(book_params.merge(author_id: author.id))
+
+        uri = URI('http://localhost:4567/update_sku')
+        req = Net::HTTP::Post.new(uri, ' Content-Type' => 'application/json' )
+        req.body = {sku: '123', name: book_params[:name]}.to_json
+        res = Net::HTTP.start(uri.hostname, uri.port) do |http|
+          http.request(req)
+        end
+
+        raise 'exit'
 
         if book.save
           render json: BookRepresenter.new(book).as_json, status: :created
@@ -25,6 +39,13 @@ module Api
       end
 
       private
+
+      def limit
+        [
+          params.fetch(:limit, MAX_PAGINATION_LIMIT).to_i,
+          MAX_PAGINATION_LIMIT
+        ].min
+      end
 
       def author_params
         params.require(:author).permit(:first_name, :last_name, :age)
